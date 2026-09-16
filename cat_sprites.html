@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Patches the Calico Cat - Sprite Sheet & Animations</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 30px;
+      background: #1c1a19;
+      color: #ede5dc;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+    }
+    h1 {
+      margin-top: 0;
+      color: #f7a245;
+      font-size: 24px;
+    }
+    p {
+      color: #b0a49b;
+      margin-bottom: 24px;
+    }
+    .sheet-card {
+      background: #2b2725;
+      border: 1px solid #453e3a;
+      border-radius: 8px;
+      padding: 20px;
+      display: inline-block;
+      margin-bottom: 30px;
+    }
+    .sheet-img {
+      image-rendering: pixelated;
+      border: 1px solid #554d48;
+      background: repeating-conic-gradient(#3a332f 0% 25%, #2a2522 0% 50%) 50% / 16px 16px;
+      display: block;
+    }
+    .label {
+      font-size: 13px;
+      font-weight: 600;
+      color: #e8ded4;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .grid-info {
+      font-size: 12px;
+      color: #9c8e84;
+      margin-top: 8px;
+    }
+  </style>
+</head>
+<body>
+  <h1>🐾 Patches the Calico Cat — Sprite Sheet</h1>
+  <p>Procedural pixel art sprite sheet generated faithfully from <code>calico-cat.html</code> (144x96 per frame, 4x scale).</p>
+
+  <div class="sheet-card">
+    <div class="label">Sprite Sheet Matrix (8 columns &times; 4 rows)</div>
+    <img class="sheet-img" src="cat_sheet.png" alt="Cat Sprite Sheet">
+    <div class="grid-info">
+      <strong>Row 0:</strong> Walk cycle (frames 0-3 with tail 0, frames 0-3 with tail 1)<br>
+      <strong>Row 1:</strong> Stand & Idle (breathing bobs, tail sways, natural blinks)<br>
+      <strong>Row 2:</strong> Looking around (backward glance, forward, forward glance) & Sitting<br>
+      <strong>Row 3:</strong> Sitting poses (breathing bobs, tail tip curls, blinks)
+    </div>
+  </div>
+</body>
+</html>
