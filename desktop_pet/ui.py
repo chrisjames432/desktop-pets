@@ -37,6 +37,11 @@ class PetUI:
         if self.chooser and self.chooser.winfo_exists():
             self.chooser.lift()
             return
+        if not getattr(self.pets, "ready", lambda: True)():
+            # Pets are drawn in code; build the others off the UI thread, then open the chooser.
+            self.pets.warm()
+            self.after(100, self.choose_pet)
+            return
         win = self.chooser = tk.Toplevel(self)
         win.title("Choose your desktop pet")
         win.configure(bg=BG)

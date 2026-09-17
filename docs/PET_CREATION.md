@@ -50,6 +50,7 @@ Manual actions may bypass spontaneous cooldowns. Dragging and reminder alerts ta
 
 ## Artwork requirements
 
+- A new cat breed is a small module on the reusable rig in `desktop_pet/pets/feline.py`: a `CatSpec` (coat ramps, proportions, faces), an optional markings hook, and a curated trick list. Read the rig's module docstring, then copy `cat.py`, `russian_blue.py`, or `orange_tabby.py`.
 - New-style pets draw with the shared kit in `desktop_pet/pets/pixelkit.py` (masks, three-tone ramps, outline, `to_image`). Use `chihuahua.py` as the reference module.
 - Grounded feet rest on the last art row so their outline lands on the bottom pixel row of the frame (`frame.getbbox()[3] == 96`). All pets share this floor line.
 - Version 1 canvas is **144 x 96 pixels for every frame**. Keep grounded feet near the bottom and the body in the same anchor position across frames.

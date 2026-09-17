@@ -1,6 +1,5 @@
 from dataclasses import replace
 from pathlib import Path
-import queue
 import tempfile
 import unittest
 from unittest.mock import patch
