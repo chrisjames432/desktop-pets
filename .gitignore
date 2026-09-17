@@ -4,3 +4,10 @@ __pycache__/
 *.log
 .DS_Store
 Thumbs.db
+settings.json
+reminders.json
+build/
+dist/
+.venv/
+*.bak
+*.corrupt-*
