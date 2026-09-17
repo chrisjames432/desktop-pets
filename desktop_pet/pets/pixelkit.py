@@ -171,3 +171,66 @@ def to_image(g):
     im = Image.new("RGBA", (W, H))
     im.putdata([(0, 0, 0, 0) if c is None else c + (255,) for c in g])
     return im.resize((W * SCALE, H * SCALE), Image.Resampling.NEAREST)
+
+
+# ---------------------------------------------------------------- multi-coat helpers
+def both(a, b):
+    """Intersection of two masks."""
+    m = Mask()
+    for y in range(max(a.y0, b.y0), min(a.y1, b.y1) + 1):
+        for x in range(max(a.x0, b.x0), min(a.x1, b.x1) + 1):
+            if a.d[y * W + x] and b.d[y * W + x]:
+                m.set(x, y - YO)
+    return m
+
+
+def patch(g, m, ramp, base, within=None):
+    """Coat marking: recolor fur already painted with the base ramp, tone for tone, under the
+    mask (optionally limited to another mask), so the marking keeps the shading underneath."""
+    if within is not None:
+        m = both(m, within)
+    if m.x1 < 0:
+        return
+    tones = {base.hi: ramp.hi, base.base: ramp.base, base.sh: ramp.sh, base.deep: ramp.deep}
+    for y in range(m.y0, m.y1 + 1):
+        for x in range(m.x0, m.x1 + 1):
+            i = y * W + x
+            if m.d[i] and g[i] in tones:
+                g[i] = tones[g[i]]
+
+
+def deeper_map(*ramps):
+    """Any tone of the given coat ramps -> the deep tone of the same ramp; feeds crease()."""
+    deeper = {}
+    for r in ramps:
+        for c in (r.hi, r.base, r.sh):
+            deeper[c] = r.deep
+    return deeper
+
+
+def crease(g, m, deeper, edge_if=None):
+    """Interior line around a part about to be drawn, using the deep tone of whatever coat is
+    underneath (looked up in a deeper_map), so the line follows patches and stripes."""
+    d = m.d
+    for y in range(max(0, m.y0 - 1), min(H - 1, m.y1 + 1) + 1):
+        for x in range(max(0, m.x0 - 1), min(W - 1, m.x1 + 1) + 1):
+            i = y * W + x
+            if d[i] or g[i] not in deeper:
+                continue
+            if ((x > 0 and d[i - 1]) or (x < W - 1 and d[i + 1]) or
+                    (y > 0 and d[i - W]) or (y < H - 1 and d[i + W])):
+                if edge_if is None or edge_if(x, y - YO):
+                    g[i] = deeper[g[i]]
+
+
+def path_after(pts, frac):
+    """Split a polyline at a fraction of its length; returns the trailing part, starting at the cut."""
+    lens = [math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]) for i in range(1, len(pts))]
+    want, acc = sum(lens) * frac, 0.0
+    for i, ln in enumerate(lens):
+        if acc + ln >= want:
+            t = (want - acc) / (ln or 1)
+            cut = (pts[i][0] + (pts[i + 1][0] - pts[i][0]) * t, pts[i][1] + (pts[i + 1][1] - pts[i][1]) * t)
+            return [cut] + list(pts[i + 1:])
+        acc += ln
+    return list(pts[-2:])

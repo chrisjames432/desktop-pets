@@ -15,6 +15,33 @@ DISPLAY = [dict(left=0, right=1920, top=0, bottom=1040, screen=(0, 0, 1920, 1080
 
 
 class CatalogTests(unittest.TestCase):
+    def test_background_warm_builds_everything_without_blocking_built_pets(self):
+        import threading
+        gate = threading.Event()
+        def slow():
+            gate.wait(5)
+            return FACTORIES["penguin"]()
+        catalog = PetCatalog({"cat": FACTORIES["cat"], "penguin": slow})
+        cat = catalog["cat"]
+        self.assertFalse(catalog.ready())
+        catalog.warm()
+        self.assertIs(catalog["cat"], cat)          # an already built pet never waits on the slow build
+        self.assertFalse(catalog.ready())
+        gate.set()
+        catalog._warmer.join(10)
+        self.assertTrue(catalog.ready())
+        self.assertEqual(catalog["penguin"].id, "penguin")
+
+    def test_warm_records_a_broken_pet_as_finished(self):
+        def broken():
+            raise RuntimeError("no art")
+        catalog = PetCatalog({"cat": FACTORIES["cat"], "broken": broken})
+        catalog.warm()
+        catalog._warmer.join(10)
+        self.assertTrue(catalog.ready())
+        with self.assertRaises(RuntimeError):
+            catalog["broken"]
+
     def test_lazy_catalog_builds_only_what_is_used(self):
         built = []
         def counted(key):
@@ -124,7 +151,10 @@ class EngineTests(unittest.TestCase):
         catalog = PetCatalog(dict(FACTORIES, cat=broken))
         with self.assertLogs("desktop_pet.app", "ERROR"):
             app = self.make_app(pets=catalog, pet_id="cat")
-        self.assertEqual(app.pet_id, "penguin")
+        self.assertEqual(app.pet_id, next(key for key in FACTORIES if key != "cat"))
+        app.choose_pet()                          # first call only starts the background build
+        self.assertIsNone(app.chooser)
+        catalog._warmer.join(30)
         with self.assertLogs("desktop_pet.ui", "ERROR"):
             app.choose_pet()
         self.assertIsNotNone(app.chooser)

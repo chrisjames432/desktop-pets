@@ -2,7 +2,7 @@
 
 A Windows reminder app with animated desktop companions. Create reminders through the pet's controls or the localhost API. Pet artwork and personality are separate from reminders and application behavior.
 
-![Patches, Andrew and Pip](docs/pets.png)
+![Patches, Anya, Andrew, Pumpkin and Pip](docs/pets.png)
 
 ## Download
 
@@ -13,10 +13,12 @@ Get `DesktopPets.exe` from the [latest release](https://github.com/chrisjames432
 | Pet | Who | Tricks |
 | --- | --- | --- |
 | Patches | Cheerful calico cat | Big stretch, wiggle and pounce, paw swat, wash face, purr, cozy nap, make biscuits, happy hop |
+| Anya | Russian Blue. Serious, silly, and very talkative | Chatty meows, judge silently, blep, zoomies, wiggle and pounce, silly hop, long stretch, cat nap |
 | Andrew | Chunky chihuahua with a lazy eye and a busy tail | Tippy taps, little bark, zoomies, happy hop, curl up for a nap |
-| Pip | Round little penguin | Flipper wave, happy dance, belly slide, preen feathers, sleepy tuck, happy hop |
+| Pumpkin | Chunky orange tabby with a small head. Grumpy, with a big heart | Secretly loves you, grumpy grumble, dramatic flop, make biscuits, rumbly purr, long nap, lazy stretch, reluctant hop |
+| Pip | Stately little emperor penguin | Flipper wave, happy dance, belly slide, preen feathers, sleepy tuck, happy hop |
 
-All three share one reminder list, one set of controls, and one API. Artwork is drawn in code on a 72 x 48 grid shown at 2x, using the shared kit in `desktop_pet/pets/pixelkit.py`.
+All pets share one reminder list, one set of controls, and one API. Artwork is drawn in code on a 72 x 48 grid shown at 2x, using the shared kit in `desktop_pet/pets/pixelkit.py`. The three cats are small breed modules on one reusable rig, `desktop_pet/pets/feline.py`.
 
 ## Run
 
