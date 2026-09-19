@@ -6,6 +6,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
+from desktop_layout import _on_screen
 from desktop_pet import app as app_module
 from desktop_pet.app import DesktopPet
 from desktop_pet.pets.registry import FACTORIES, PetCatalog
@@ -24,10 +25,11 @@ class FakeLayer:
         self.moves = []
         self.allow = True
 
-    def set_behind(self):
+    def set_behind(self, shape):
         if not self.allow:
             return False
         self.behind = True
+        self.shapes = [shape]
         self.switches.append("behind")
         return True
 
@@ -35,6 +37,9 @@ class FakeLayer:
         self.behind = False
         self.switches.append("front")
         return True
+
+    def shape(self, shape):
+        self.shapes.append(shape)
 
     def move(self, x, y):
         if self.behind:
@@ -110,6 +115,18 @@ class SwimTests(unittest.TestCase):
             app.step(0.05)
         self.assertEqual(app.y, 100)
 
+    def test_swimmer_swims_on_after_a_drop_and_after_a_pet_switch(self):
+        app = self.make_app("cat")
+        app.select_pet("fish")
+        for label in ("pet switch", "drop"):
+            start = (app.x, app.y)
+            for _ in range(1200):                                  # one minute
+                app.step(0.05)
+            self.assertGreater(abs(app.x - start[0]) + abs(app.y - start[1]), 50, label)
+            app._dragging = True
+            app.x, app.y = 700, 100
+            app.on_release(None)
+
     def test_dive_moves_behind_icons_and_surfaces_on_its_own(self):
         app = self.make_app()
         self.assertTrue(app.dive())
@@ -155,6 +172,42 @@ class SwimTests(unittest.TestCase):
         self.assertTrue(app.layer.switches[0] == "behind")
         for a, b in zip(app.layer.switches, app.layer.switches[1:]):
             self.assertNotEqual(a, b)
+
+    def test_swimmer_crosses_between_monitors_that_do_not_line_up(self):
+        # Three side-by-side screens whose tops and bottoms differ, as on a real mixed setup.
+        left = {"left": -1680, "top": 29, "right": 0, "bottom": 1079, "screen": (-1680, 29, 0, 1079), "primary": False}
+        main = {"left": 0, "top": 0, "right": 1920, "bottom": 1040, "screen": (0, 0, 1920, 1080), "primary": True}
+        right = {"left": 1920, "top": -13, "right": 3840, "bottom": 1067, "screen": (1920, -13, 3840, 1067), "primary": False}
+        self.display_mock.return_value = [left, main, right]
+        app = self.make_app()
+        app._maybe_change_layer = lambda: None
+        for target, monitor in (((-900, 40), left), ((3000, 0), right), ((800, 500), main)):
+            app.target_x, app.target_y = target
+            app.enter_state("walk", 600)
+            for _ in range(3000):
+                app.step(0.05)
+                self.assertTrue(_on_screen(app.monitors, app.x, app.y, app.pet_w, app.pet_h))
+                if app.state != "walk":
+                    break
+            self.assertTrue(monitor["left"] <= app.x <= monitor["right"] - app.pet_w, (target, app.x, app.y))
+
+    def test_the_window_is_cut_to_the_sprite_while_behind_the_icons(self):
+        app = self.make_app()
+        app.enter_state("walk", 60)
+        self.assertTrue(app.dive())
+        first = app.layer.shapes[0]
+        self.assertTrue(first)                                     # handed over with the dive itself
+        for left_edge, top, right_edge, bottom in first:
+            self.assertTrue(0 <= left_edge < right_edge <= app.pet_w and 0 <= top < bottom <= app.pet_h)
+        app._surface_at = float("inf")
+        for _ in range(40):
+            app.step(0.05)
+        self.assertGreater(len(app.layer.shapes), 1)               # follows the animation
+        app.surface()
+        count = len(app.layer.shapes)
+        for _ in range(40):
+            app.step(0.05)
+        self.assertEqual(len(app.layer.shapes), count)             # the colour key takes over in front
 
     def test_unavailable_layering_keeps_the_swimmer_in_front(self):
         app = self.make_app()

@@ -11,7 +11,7 @@ import time
 import tkinter as tk
 from tkinter import messagebox
 
-from desktop_layout import get_monitors, nearest_monitor, floor_at, horizontal_bounds, FloorTransition
+from desktop_layout import get_monitors, nearest_monitor, floor_at, horizontal_bounds, keep_inside, FloorTransition
 from .api import API_PORT, ApiServer, StatusSnapshot
 from .behavior import PetBehavior
 from .paths import data_directory, migrate_legacy, pending_legacy_files
@@ -48,7 +48,7 @@ class DesktopPet(PetUI, tk.Tk):
         self._drag_start_x = self._drag_start_y = 0
         self._floor_transition = None
         self._next_display_check = time.monotonic() + 2
-        self._last_position = self._last_image = None
+        self._last_position = self._last_image = self._last_shape = None
         self.pet_w, self.pet_h = CANVAS_SIZE
         self.pet_id, self.definition = self._usable_pet(pet_id)
         self.behavior = PetBehavior(self.definition)
@@ -128,9 +128,7 @@ class DesktopPet(PetUI, tk.Tk):
 
     # ---- swimming pets: free movement inside the work area, no floor, two desktop layers
     def _clamp_swimmer(self):
-        m = nearest_monitor(self.monitors, self.x + self.pet_w / 2, self.y + self.pet_h / 2)
-        self.x = max(m["left"], min(m["right"] - self.pet_w, self.x))
-        self.y = max(m["top"], min(m["bottom"] - self.pet_h, self.y))
+        self.x, self.y = keep_inside(self.monitors, self.x, self.y, self.pet_w, self.pet_h)
 
     def _at_target(self):
         if self.swimmer:
@@ -141,7 +139,9 @@ class DesktopPet(PetUI, tk.Tk):
         """Swim behind the desktop icons for a while. Ignored while busy or while a popup is open."""
         if not self.swimmer or self._dragging or self.speech_bubble or self.alert_win or self.chooser:
             return False
-        if self.layer.set_behind():
+        shape = self._sprites.shape(*self._shown_frame(), self.facing)
+        if self.layer.set_behind(shape):
+            self._last_shape = shape
             self._surface_at = time.monotonic() + random.uniform(*BEHIND_SECONDS)
             self._last_position = None
             self._position()
@@ -193,24 +193,35 @@ class DesktopPet(PetUI, tk.Tk):
         elif not self.alert_win and animation.forward_speed and self.roam_enabled and not blocked:
             self.x += self.facing * animation.forward_speed * dt
         if self.state != "alert" and self.behavior.elapsed >= self.behavior.duration:
+            if self._at_target() and not blocked:
+                # A drop, a pet switch, or a display change leaves the target where the swimmer
+                # already is. Without somewhere new to go it would rest there indefinitely.
+                self.pick_new_destination()
             self.behavior.next(self.roam_enabled, self._at_target(), blocked)
             if self.state == "walk":
-                if self._at_target():
-                    self.pick_new_destination()
                 self.facing = 1 if self.target_x > self.x else -1
             elif not blocked:
                 self._maybe_change_layer()
         self._clamp_swimmer()
 
+    def _shown_frame(self):
+        held = self._dragging or self._floor_transition
+        return ("fall", 0) if held else (self.state, self.behavior.frame_index())
+
     def render(self):
         if self._sprites is None or self._sprites.definition is not self.definition:
             self._sprites = SpriteCache(self.definition, self)  # Releases the previous pet's Tk images.
-        state = "fall" if self._dragging or self._floor_transition else self.state
-        index = 0 if self._dragging or self._floor_transition else self.behavior.frame_index()
+        state, index = self._shown_frame()
         image = self._sprites.get(state, index, self.facing)
         if image is not self._last_image:
             self.canvas.itemconfig(self.sprite_item, image=image)
             self._last_image = image
+        if self.layer.behind:
+            shape = self._sprites.shape(state, index, self.facing)
+            if shape is not self._last_shape:
+                self.update_idletasks()      # Draw the new frame before the window is cut to it.
+                self.layer.shape(shape)
+                self._last_shape = shape
 
     def publish_status(self):
         self.status.set({"pet": self.definition.label, "pet_id": self.pet_id,
@@ -498,6 +509,8 @@ class DesktopPet(PetUI, tk.Tk):
         for timer in (getattr(self, "_pet_timer", None), getattr(self, "_reminder_timer", None)):
             if timer:
                 self.after_cancel(timer)
+        if getattr(self, "layer", None):
+            self.layer.set_front()      # A pet that quits behind the icons would stay painted on the wallpaper.
         super().destroy()
 
 

@@ -13,17 +13,19 @@ The reminder service is the product core. Pets are interchangeable presentations
 | `desktop_pet/app.py` | Application lifecycle, input, movement, timers, service coordination |
 | `desktop_pet/ui.py` | Species-independent chooser, reminders, alerts, speech bubbles, and menu |
 | `desktop_pet/behavior.py` | Animation timing, weighted personality behavior, cooldowns, and state transitions |
-| `desktop_pet/sprites.py` | Lazy Tk image cache for the current pet only, shared by reused frames, and left-facing mirrors |
+| `desktop_pet/sprites.py` | Lazy Tk image cache for the current pet only, shared by reused frames, left-facing mirrors, and each frame's opaque outline |
 | `desktop_pet/pets/base.py` | Public artwork/personality contract and validation |
 | `desktop_pet/pets/registry.py` | Explicit bundled pet factories; the app builds each pet on first use, tests build all eagerly |
-| `desktop_layout.py` | Windows monitor work areas and surface transitions |
-| `desktop_pet/platform_windows.py` | Per-data-directory process mutex and startup messages |
+| `desktop_layout.py` | Windows monitor work areas, surface transitions, and keeping a swimmer on screen while it crosses monitors |
+| `desktop_pet/platform_windows.py` | Per-data-directory process mutex, startup messages, and the behind-the-icons desktop layer |
 
 Manual controls and HTTP handlers both call `ReminderService`. Successful changes enqueue a refresh event; the Tk thread refreshes open views. Pet commands also go through that queue. API handlers read a status snapshot instead of touching the Tk app object. File failures are reported before an in-memory mutation is committed.
 
 Outstanding reminders remain persistent until dismissed or snoozed. Presentation is tracked only in memory, so an unanswered reminder returns after restart. Alert UI completion never depends on finishing an animation. Reminder checks use a separate timer and do not reread JSON every tick.
 
 Pet definitions contain Pillow frames and data. They never create Tk windows, call the API, write files, or choose their own movement loop. The shared engine owns motion, Stay mode, dragging, taskbar transitions, and reminder interruption. Pet behavior uses monotonic time and floating-point positions; drawing changes only when the frame or integer window position changes.
+
+Behind the desktop icons the pet window is a plain child of the desktop's wallpaper window. Windows does not render a colour-keyed window there, so the window is cut to the sprite's outline with a window region, and the wallpaper is repainted over every rectangle the pet leaves because the desktop never repaints it on its own. The Tk frame window is looked up at the moment of each dive; Tk creates it only once the toplevel is mapped, and reparenting the inner window instead orphans it as a frozen block of the transparent colour.
 
 ## Adding a pet
 

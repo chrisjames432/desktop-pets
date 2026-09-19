@@ -19,7 +19,7 @@ Get `DesktopPets.exe` from the [latest release](https://github.com/chrisjames432
 | Pip | Stately little emperor penguin | Flipper wave, happy dance, belly slide, preen feathers, sleepy tuck, happy hop |
 | Koi | Kohaku koi that swims anywhere on the desktop, sometimes behind your icons | Blow bubbles, tail flourish, quick dart, gulp gulp, happy wiggle |
 
-The koi is a swimmer: it moves freely around the screen instead of walking the taskbar, and now and then it slips behind the desktop icons for up to half a minute. It comes to the front on its own, and right away whenever a reminder fires or you drag it. Right-click it for "Dive behind the icons".
+The koi is a swimmer: it moves freely around the screen and from one monitor to the next instead of walking the taskbar, and now and then it slips behind the desktop icons for up to half a minute. It comes to the front on its own, and right away whenever a reminder fires or you drag it. Right-click it for "Dive behind the icons".
 
 All pets share one reminder list, one set of controls, and one API. Artwork is drawn in code on a 72 x 48 grid shown at 2x, using the shared kit in `desktop_pet/pets/pixelkit.py`. The three cats are small breed modules on one reusable rig, `desktop_pet/pets/feline.py`.
 
@@ -105,6 +105,6 @@ The script requires passing tests, then writes `dist\DesktopPets.exe`. The spec 
 
 Before sharing, test the EXE on a Windows account or machine without Python: chooser, manual/API reminder, snooze/dismiss, restart recovery, duplicate launch, monitor crossings, and retained data after replacing the EXE. Release EXEs are built with this script from a clean virtual environment and smoke tested with an isolated data folder before publishing.
 
-## Historical references
+## Launchers
 
-`penguin_original.py`, the root sprite-sheet PNGs, and sprite-preview HTML files are historical references. The application never imports the old penguin implementation. Root `cat.py` and `penguin.py` are compatibility launchers; edit artwork under `desktop_pet/pets/`.
+Root `cat.py` and `penguin.py` are compatibility launchers; edit artwork under `desktop_pet/pets/`.
