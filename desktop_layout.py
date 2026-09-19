@@ -61,6 +61,35 @@ def floor_at(monitors, x, width, feet_y, foot_offset=96):
     return min(m["bottom"] for m in covered or [anchor]) - foot_offset
 
 
+def _on_screen(monitors, x, y, width, height):
+    """True when work areas cover the whole rectangle. Work areas never overlap each other."""
+    covered = sum(max(0, min(x + width, m["right"]) - max(x, m["left"]))
+                  * max(0, min(y + height, m["bottom"]) - max(y, m["top"])) for m in monitors)
+    return covered >= width * height - 0.5
+
+
+def keep_inside(monitors, x, y, width, height):
+    """Nearest position that keeps a free-moving sprite fully on screen.
+
+    A sprite may straddle monitors that share an edge; that is how a swimmer crosses from one
+    to the next. Neighbours rarely line up exactly, so a straddling sprite slides into the
+    span they share. Anything else is pulled back into the nearest monitor.
+    """
+    if _on_screen(monitors, x, y, width, height):
+        return x, y
+    touched = [m for m in monitors if m["left"] < x + width and m["right"] > x
+               and m["top"] < y + height and m["bottom"] > y]
+    if len(touched) > 1:
+        slid_y = max(max(m["top"] for m in touched), min(min(m["bottom"] for m in touched) - height, y))
+        if _on_screen(monitors, x, slid_y, width, height):
+            return x, slid_y
+        slid_x = max(max(m["left"] for m in touched), min(min(m["right"] for m in touched) - width, x))
+        if _on_screen(monitors, slid_x, y, width, height):
+            return slid_x, y
+    m = nearest_monitor(monitors, x + width / 2, y + height / 2)
+    return (max(m["left"], min(m["right"] - width, x)), max(m["top"], min(m["bottom"] - height, y)))
+
+
 def horizontal_bounds(monitors, width):
     left = min(m["left"] for m in monitors) + 10
     right = max(m["right"] for m in monitors) - width - 10
