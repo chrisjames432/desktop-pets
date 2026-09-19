@@ -18,7 +18,9 @@ class PetUI:
         self.menu.add_separator()
         self.menu.add_command(label="Add reminder...", command=self.add_dialog)
         self.menu.add_command(label="View reminders", command=self.show_list_dialog)
-        self.menu.add_command(label="Walk / Stay", command=self.toggle_roam)
+        self.menu.add_command(label="Swim / Stay" if self.swimmer else "Walk / Stay", command=self.toggle_roam)
+        if self.swimmer:
+            self.menu.add_command(label="Dive behind the icons", command=self.dive)
         self.menu.add_separator()
         for action, label in self.definition.actions.items():
             self.menu.add_command(label=label, command=lambda a=action: self.do_action(a))

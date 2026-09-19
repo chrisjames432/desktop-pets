@@ -17,7 +17,7 @@ from .behavior import PetBehavior
 from .paths import data_directory, migrate_legacy, pending_legacy_files
 from .pets.base import CANVAS_SIZE
 from .pets.registry import load_pets
-from .platform_windows import SingleInstance, show_message
+from .platform_windows import DesktopLayer, NoLayer, SingleInstance, show_message
 from .reminders import ReminderService
 from .sprites import SpriteCache, TRANS_KEY
 from .storage import JsonFile, StorageError
@@ -25,6 +25,8 @@ from .ui import PetUI
 
 log = logging.getLogger(__name__)
 ERROR_DIALOG_GAP = 60  # Seconds; a failing 50 ms timer must never stack message boxes.
+DIVE_CHANCE = 0.4      # A swimmer's chance, at each rest, of slipping behind the desktop icons.
+BEHIND_SECONDS = (10, 30)  # How long a swimmer stays back there before surfacing on its own.
 
 
 class DesktopPet(PetUI, tk.Tk):
@@ -67,6 +69,12 @@ class DesktopPet(PetUI, tk.Tk):
         self.floor_y = floor_at(self.monitors, self.x, self.pet_w, primary["bottom"] - 1, self.pet_h)
         self.y = self.floor_y
         self.target_x = self.x
+        self.target_y = self.y
+        self.swimmer = self.definition.movement == "swim"
+        self.layer = NoLayer()
+        self._surface_at = 0.0
+        if self.swimmer:
+            self.y = self.target_y = (primary["top"] + primary["bottom"] - self.pet_h) / 2
         self.overrideredirect(True)
         self.attributes("-topmost", True)
         self.wm_attributes("-transparentcolor", TRANS_KEY)
@@ -86,6 +94,10 @@ class DesktopPet(PetUI, tk.Tk):
         self.last_tick = time.monotonic()
         if start_loops:
             self.deiconify()
+            try:
+                self.layer = DesktopLayer(self)
+            except Exception:
+                log.exception("Desktop layering unavailable; swimmers will stay in front")
             self.tick_pet()
             self.tick_reminders()
             if choose:
@@ -110,8 +122,85 @@ class DesktopPet(PetUI, tk.Tk):
     def _position(self):
         position = round(self.x), round(self.y)
         if position != self._last_position:
-            self.geometry(f"+{position[0]}+{position[1]}")
+            if not self.layer.move(*position):
+                self.geometry(f"+{position[0]}+{position[1]}")
             self._last_position = position
+
+    # ---- swimming pets: free movement inside the work area, no floor, two desktop layers
+    def _clamp_swimmer(self):
+        m = nearest_monitor(self.monitors, self.x + self.pet_w / 2, self.y + self.pet_h / 2)
+        self.x = max(m["left"], min(m["right"] - self.pet_w, self.x))
+        self.y = max(m["top"], min(m["bottom"] - self.pet_h, self.y))
+
+    def _at_target(self):
+        if self.swimmer:
+            return math.hypot(self.target_x - self.x, self.target_y - self.y) < 20
+        return abs(self.target_x - self.x) < 20
+
+    def dive(self):
+        """Swim behind the desktop icons for a while. Ignored while busy or while a popup is open."""
+        if not self.swimmer or self._dragging or self.speech_bubble or self.alert_win or self.chooser:
+            return False
+        if self.layer.set_behind():
+            self._surface_at = time.monotonic() + random.uniform(*BEHIND_SECONDS)
+            self._last_position = None
+            self._position()
+            return True
+        return False
+
+    def surface(self):
+        if self.layer.behind:
+            self.layer.set_front()
+            self._last_position = None
+            self._position()
+
+    def _maybe_change_layer(self):
+        if self.layer.behind:
+            if random.random() < 0.5:
+                self.surface()
+        elif random.random() < DIVE_CHANCE:
+            self.dive()
+
+    def _step_swim(self, dt):
+        blocked = bool(self.speech_bubble or self.alert_win or self.chooser)
+        if blocked or self._dragging:
+            self.surface()
+        if self._dragging:
+            return
+        if self.alert_win and self.state != "alert":
+            self.enter_state("alert")
+        elif blocked and self.state == "walk":
+            self.enter_state("sit")
+        elif self.state == "fall":
+            self.enter_state("sit")          # no gravity under water
+        self.behavior.advance(dt)
+        animation = self.definition.animations[self.state]
+        if self.layer.behind and time.monotonic() >= self._surface_at:
+            self.surface()
+        if self.state == "walk" and self.roam_enabled and not blocked:
+            dx, dy = self.target_x - self.x, self.target_y - self.y
+            distance = math.hypot(dx, dy)
+            if distance > 1:
+                step = min(distance, self.definition.personality.walk_speed * dt)
+                self.x += dx / distance * step
+                self.y += dy / distance * step
+                if abs(dx) > 8:
+                    self.facing = 1 if dx > 0 else -1
+            else:
+                self.behavior.rest()
+                self._maybe_change_layer()
+                self.pick_new_destination()
+        elif not self.alert_win and animation.forward_speed and self.roam_enabled and not blocked:
+            self.x += self.facing * animation.forward_speed * dt
+        if self.state != "alert" and self.behavior.elapsed >= self.behavior.duration:
+            self.behavior.next(self.roam_enabled, self._at_target(), blocked)
+            if self.state == "walk":
+                if self._at_target():
+                    self.pick_new_destination()
+                self.facing = 1 if self.target_x > self.x else -1
+            elif not blocked:
+                self._maybe_change_layer()
+        self._clamp_swimmer()
 
     def render(self):
         if self._sprites is None or self._sprites.definition is not self.definition:
@@ -127,7 +216,8 @@ class DesktopPet(PetUI, tk.Tk):
         self.status.set({"pet": self.definition.label, "pet_id": self.pet_id,
                          "actions": list(self.definition.actions), "state": self.state,
                          "facing": self.facing, "x": round(self.x), "y": round(self.y),
-                         "roam_enabled": self.roam_enabled, "status": "online"})
+                         "roam_enabled": self.roam_enabled, "status": "online",
+                         "layer": "behind" if self.layer.behind else "front"})
 
     def select_pet(self, pet_id):
         if pet_id not in self.pets:
@@ -137,13 +227,19 @@ class DesktopPet(PetUI, tk.Tk):
             self.settings.save({"pet": pet_id})
         except StorageError:
             log.exception("Pet preference was not saved")  # A preference never blocks the switch.
+        self.surface()
         self.pet_id, self.definition = pet_id, definition
+        self.swimmer = definition.movement == "swim"
         self.behavior = PetBehavior(self.definition)
         self._floor_transition = None
         self._dragging = False
         self.vy = 0
-        self.floor_y = self.local_floor(self.x)
-        self.y = self.floor_y
+        if self.swimmer:
+            self._clamp_swimmer()
+            self.target_x, self.target_y = self.x, self.y
+        else:
+            self.floor_y = self.local_floor(self.x)
+            self.y = self.floor_y
         self.enter_state("alert" if self.alert_win else "sit")
         if self.speech_bubble:
             self._close_bubble(self.speech_bubble)
@@ -156,11 +252,11 @@ class DesktopPet(PetUI, tk.Tk):
         self.publish_status()
 
     def enter_state(self, state, duration=None):
-        if not self._dragging and not self._floor_transition and self.state != "fall":
+        if not self.swimmer and not self._dragging and not self._floor_transition and self.state != "fall":
             self.y = self.floor_y
         self.behavior.enter(state, duration)
         if state == "walk":
-            if abs(self.target_x-self.x) < 20:
+            if self._at_target():
                 self.pick_new_destination()
             self.facing = 1 if self.target_x > self.x else -1
 
@@ -198,7 +294,11 @@ class DesktopPet(PetUI, tk.Tk):
         if self._floor_transition:
             self.floor_y = self.y
         self._floor_transition = None
-        if not self._dragging:
+        if self.swimmer:
+            self._clamp_swimmer()
+            self.target_x, self.target_y = self.x, self.y
+            self._position()
+        elif not self._dragging:
             m = nearest_monitor(monitors, self.x+self.pet_w/2, self.y+self.pet_h-1)
             if not any(m["left"] <= self.x+self.pet_w/2 < m["right"] for m in monitors):
                 self.x = max(m["left"], min(m["right"]-self.pet_w, self.x))
@@ -216,6 +316,13 @@ class DesktopPet(PetUI, tk.Tk):
 
     def pick_new_destination(self):
         if not self.roam_enabled:
+            return
+        if self.swimmer:
+            here = nearest_monitor(self.monitors, self.x + self.pet_w / 2, self.y + self.pet_h / 2)
+            m = random.choice(self.monitors) if len(self.monitors) > 1 and random.random() < 0.25 else here
+            self.target_x = random.uniform(m["left"] + 10, max(m["left"] + 10, m["right"] - self.pet_w - 10))
+            self.target_y = random.uniform(m["top"] + 10, max(m["top"] + 10, m["bottom"] - self.pet_h - 10))
+            self.facing = 1 if self.target_x > self.x else -1
             return
         span = self.max_x-self.min_x
         if span > 1200 and random.random() < 0.65:
@@ -254,7 +361,9 @@ class DesktopPet(PetUI, tk.Tk):
         """Advance one frame; deterministic dt enables movement tests without sleeping."""
         self.refresh_displays()
         self.process_events()
-        if self._dragging:
+        if self.swimmer:
+            self._step_swim(dt)
+        elif self._dragging:
             pass
         elif self._floor_transition:
             self.x, self.y, landed = self._floor_transition.advance(dt)
@@ -290,7 +399,7 @@ class DesktopPet(PetUI, tk.Tk):
                     period = animation.frame_seconds*len(animation.frames)
                     self.y = self.floor_y-animation.hop_height*abs(math.sin(math.pi*self.behavior.elapsed/period))
             if not self._floor_transition and self.state != "alert" and self.behavior.elapsed >= self.behavior.duration:
-                self.behavior.next(self.roam_enabled, abs(self.target_x-self.x) < 20, blocked)
+                self.behavior.next(self.roam_enabled, self._at_target(), blocked)
                 if self.state == "walk":
                     self.facing = 1 if self.target_x > self.x else -1
                 self.y = self.floor_y
@@ -345,7 +454,14 @@ class DesktopPet(PetUI, tk.Tk):
         self._position()
 
     def on_release(self, event):
-        if self._dragging:
+        if self._dragging and self.swimmer:
+            self._dragging = False
+            self._clamp_swimmer()
+            self.target_x, self.target_y = self.x, self.y
+            self.enter_state("alert" if self.alert_win else "sit")
+            if self.alert_win:
+                self.place_popup(self.alert_win)
+        elif self._dragging:
             self._dragging = False
             self.floor_y = self.local_floor(self.x)
             self.vy = 0

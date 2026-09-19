@@ -6,6 +6,7 @@ from PIL import Image
 
 CANVAS_SIZE = (144, 96)
 REQUIRED_STATES = frozenset({"idle", "sit", "look", "walk", "alert", "fall"})
+MOVEMENTS = frozenset({"ground", "swim"})
 
 
 @dataclass(frozen=True)
@@ -39,6 +40,9 @@ class PetDefinition:
     description: str
     animations: dict[str, Animation]
     personality: Personality = field(default_factory=Personality)
+    # "ground": walks on the taskbar line with gravity (default).
+    # "swim": moves freely anywhere in the work area, no floor, and may swim behind the desktop icons.
+    movement: str = "ground"
 
     @property
     def actions(self):
@@ -49,6 +53,8 @@ class PetDefinition:
             raise ValueError("Pet ID must be lowercase snake_case")
         if not all(isinstance(value, str) and value.strip() for value in (self.name, self.label, self.description)):
             raise ValueError("Pet name, label, and description are required")
+        if self.movement not in MOVEMENTS:
+            raise ValueError(f"{self.id}: movement must be one of {sorted(MOVEMENTS)}")
         if not REQUIRED_STATES <= self.animations.keys():
             raise ValueError(f"{self.id}: missing core states {REQUIRED_STATES - self.animations.keys()}")
         p = self.personality

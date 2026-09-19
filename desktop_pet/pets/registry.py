@@ -7,6 +7,7 @@ from .penguin import build_pet as build_penguin
 from .chihuahua import build_pet as build_chihuahua
 from .russian_blue import build_pet as build_russian_blue
 from .orange_tabby import build_pet as build_orange_tabby
+from .koi import build_pet as build_koi
 
 FACTORIES = {
     "cat": build_cat,
@@ -14,6 +15,7 @@ FACTORIES = {
     "penguin": build_penguin,
     "russian_blue": build_russian_blue,
     "orange_tabby": build_orange_tabby,
+    "koi": build_koi,
 }
 
 

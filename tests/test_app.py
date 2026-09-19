@@ -68,6 +68,8 @@ class AppTests(unittest.TestCase):
 
     def test_crossings_never_put_sprite_inside_taskbar(self):
         for pet_id in self.pets:
+            if self.pets[pet_id].movement != "ground":
+                continue                      # swimmers have no floor; see tests/test_swim.py
             self.app.select_pet(pet_id)
             for start, target in ((1774, 2200), (1922, 1500)):
                 self.app._floor_transition = None
