@@ -41,10 +41,16 @@ class PetContractTests(unittest.TestCase):
             for state in ("idle", "sit", "look", "walk", "alert"):
                 for index, frame in enumerate(pet.animations[state].frames):
                     with self.subTest(pet=pet.id, state=state, frame=index):
-                        left, _top, right, bottom = frame.getbbox()
-                        self.assertEqual(bottom, CANVAS_SIZE[1])
+                        left, top, right, bottom = frame.getbbox()
                         self.assertGreater(left, 0)
                         self.assertLess(right, CANVAS_SIZE[0])
+                        if pet.movement == "swim":
+                            # A swimmer floats: clear of every edge, body near the vertical centre.
+                            self.assertGreater(top, 0)
+                            self.assertLess(bottom, CANVAS_SIZE[1])
+                            self.assertLess(abs((top + bottom) / 2 - CANVAS_SIZE[1] / 2), 12)
+                        else:
+                            self.assertEqual(bottom, CANVAS_SIZE[1])
 
     def test_contract_does_not_depend_on_logical_art_grid(self):
         pet = next(iter(self.pets.values()))

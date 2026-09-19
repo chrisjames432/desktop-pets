@@ -2,7 +2,7 @@
 
 A Windows reminder app with animated desktop companions. Create reminders through the pet's controls or the localhost API. Pet artwork and personality are separate from reminders and application behavior.
 
-![Patches, Anya, Andrew, Pumpkin and Pip](docs/pets.png)
+![Patches, Anya, Andrew, Pumpkin, Pip and the Koi](docs/pets.png)
 
 ## Download
 
@@ -17,6 +17,9 @@ Get `DesktopPets.exe` from the [latest release](https://github.com/chrisjames432
 | Andrew | Chunky chihuahua with a lazy eye and a busy tail | Tippy taps, little bark, zoomies, happy hop, curl up for a nap |
 | Pumpkin | Chunky orange tabby with a small head. Grumpy, with a big heart | Secretly loves you, grumpy grumble, dramatic flop, make biscuits, rumbly purr, long nap, lazy stretch, reluctant hop |
 | Pip | Stately little emperor penguin | Flipper wave, happy dance, belly slide, preen feathers, sleepy tuck, happy hop |
+| Koi | Kohaku koi that swims anywhere on the desktop, sometimes behind your icons | Blow bubbles, tail flourish, quick dart, gulp gulp, happy wiggle |
+
+The koi is a swimmer: it moves freely around the screen instead of walking the taskbar, and now and then it slips behind the desktop icons for up to half a minute. It comes to the front on its own, and right away whenever a reminder fires or you drag it. Right-click it for "Dive behind the icons".
 
 All pets share one reminder list, one set of controls, and one API. Artwork is drawn in code on a 72 x 48 grid shown at 2x, using the shared kit in `desktop_pet/pets/pixelkit.py`. The three cats are small breed modules on one reusable rig, `desktop_pet/pets/feline.py`.
 

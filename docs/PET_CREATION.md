@@ -27,12 +27,13 @@ Each pet module exports `build_pet()`. It returns `PetDefinition` from `desktop_
 | `description` | One short sentence for the chooser |
 | `animations` | Dictionary mapping state IDs to `Animation` objects |
 | `personality` | `Personality` values used by the shared behavior engine |
+| `movement` | `"ground"` (default) walks the taskbar line with gravity. `"swim"` moves freely anywhere in the work area with no floor, and the engine lets it slip behind the desktop icons now and then, surfacing on its own within 30 seconds and whenever a popup, drag, or reminder needs it in front. |
 
 `build_pet()` must work without creating Tk or any windows. It must not read user settings, access the network, start threads, or change files. Generate Pillow frames in memory or load bundled artwork relative to `__file__`.
 
 ## Required animations
 
-Every pet supplies **idle, sit, look, walk, alert, fall**. These names are reserved shared states. Optional tricks can have descriptive IDs such as `preen`, `knead`, or `tail_chase`.
+Every pet supplies **idle, sit, look, walk, alert, fall**. For a swimmer these mean: idle = hover, sit = lazy drift, look = curious turn, walk = the swim cycle used whenever it travels, alert = excited, fall = shown while dragged (no gravity). Ignore the grounded-feet rule for swimmers; centre the body and keep a 1 px margin on every side instead. These names are reserved shared states. Optional tricks can have descriptive IDs such as `preen`, `knead`, or `tail_chase`.
 
 | Animation field | Default | Behavior |
 | --- | --- | --- |
