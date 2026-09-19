@@ -193,10 +193,12 @@ class DesktopPet(PetUI, tk.Tk):
         elif not self.alert_win and animation.forward_speed and self.roam_enabled and not blocked:
             self.x += self.facing * animation.forward_speed * dt
         if self.state != "alert" and self.behavior.elapsed >= self.behavior.duration:
+            if self._at_target() and not blocked:
+                # A drop, a pet switch, or a display change leaves the target where the swimmer
+                # already is. Without somewhere new to go it would rest there indefinitely.
+                self.pick_new_destination()
             self.behavior.next(self.roam_enabled, self._at_target(), blocked)
             if self.state == "walk":
-                if self._at_target():
-                    self.pick_new_destination()
                 self.facing = 1 if self.target_x > self.x else -1
             elif not blocked:
                 self._maybe_change_layer()

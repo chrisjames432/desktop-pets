@@ -115,6 +115,18 @@ class SwimTests(unittest.TestCase):
             app.step(0.05)
         self.assertEqual(app.y, 100)
 
+    def test_swimmer_swims_on_after_a_drop_and_after_a_pet_switch(self):
+        app = self.make_app("cat")
+        app.select_pet("fish")
+        for label in ("pet switch", "drop"):
+            start = (app.x, app.y)
+            for _ in range(1200):                                  # one minute
+                app.step(0.05)
+            self.assertGreater(abs(app.x - start[0]) + abs(app.y - start[1]), 50, label)
+            app._dragging = True
+            app.x, app.y = 700, 100
+            app.on_release(None)
+
     def test_dive_moves_behind_icons_and_surfaces_on_its_own(self):
         app = self.make_app()
         self.assertTrue(app.dive())
